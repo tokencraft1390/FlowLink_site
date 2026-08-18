@@ -1,2 +1,18 @@
 # FlowLink_site
-“Responsive site for FlowLink Revenue AI LLC with affiliate links, revenue calculator, and invoices — styled with Pico.css and AI-generated imagery.”
+
+Responsive public site for FlowLink Revenue AI LLC.
+
+## LoopVault evidence dashboard
+
+`loopvault-proof.html` is the read-only public evidence surface for the LoopVault Base/Aave V3 prototype.
+
+The page deliberately separates:
+
+- verified prototype capabilities,
+- public runtime telemetry,
+- production execution readiness, and
+- realized economics.
+
+It does not present sample telemetry as live data. Until a sanitized `loopvault-evidence.json` feed is published by the monitoring service, the dashboard clearly reports that public telemetry is not connected.
+
+Current positioning: monitoring-first, non-custodial direction, pre-revenue. Production autonomous execution and realized liquidation revenue remain milestones rather than current claims.
