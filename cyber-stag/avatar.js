@@ -1,5 +1,6 @@
 class FlowLinkStag {
   constructor() {
+    const params = new URLSearchParams(location.search);
     this.ws = null;
     this.state = 'offline';
     this.responseTimer = null;
@@ -8,19 +9,24 @@ class FlowLinkStag {
     this.maxReconnectAttempts = 8;
     this.baseReconnectDelay = 1000;
     this.touchGuardUntil = 0;
-    this.voiceEnabled = new URLSearchParams(location.search).has('voice');
+    this.voiceEnabled = params.has('voice');
+    this.micEnabled = params.has('mic');
     this.voiceUnlocked = false;
     this.voice = null;
     this.hasAnnouncedReady = false;
+    this.recognition = null;
+    this.recognitionActive = false;
+    this.recognitionProducedResult = false;
     this.stage = document.getElementById('stage');
     this.response = document.getElementById('response');
     this.statusText = document.querySelector('.status-text');
     this.statusIndicator = document.querySelector('.status-indicator');
     this.stagContainer = document.querySelector('.stag-container');
-    document.body.classList.toggle('kiosk', new URLSearchParams(location.search).has('kiosk'));
+    document.body.classList.toggle('kiosk', params.has('kiosk'));
     this.bindEvents();
     this.createAmbientParticles();
     this.prepareVoice();
+    this.prepareRecognition();
     this.connect();
   }
 
@@ -37,6 +43,76 @@ class FlowLinkStag {
     window.speechSynthesis.addEventListener?.('voiceschanged', chooseVoice, { once: true });
   }
 
+  prepareRecognition() {
+    if (!this.micEnabled) return;
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      this.micEnabled = false;
+      this.showResponse('Speech recognition is not supported in this browser.', '#FFAA00');
+      return;
+    }
+
+    this.recognition = new Recognition();
+    this.recognition.lang = 'en-US';
+    this.recognition.interimResults = true;
+    this.recognition.continuous = false;
+
+    this.recognition.onstart = () => {
+      this.recognitionActive = true;
+      this.recognitionProducedResult = false;
+    };
+
+    this.recognition.onresult = event => {
+      let interim = '';
+      let finalText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) finalText += text;
+        else interim += text;
+      }
+      if (interim) this.showResponse(interim.trim(), '#9DEEFF');
+      if (finalText.trim()) {
+        this.recognitionProducedResult = true;
+        this.showResponse(finalText.trim(), '#FFFFFF');
+        this.sendTranscript(finalText.trim());
+      }
+    };
+
+    this.recognition.onerror = event => {
+      this.recognitionActive = false;
+      if (event.error === 'aborted' || event.error === 'no-speech') {
+        if (this.state === 'listening') this.sendAction('cancel');
+        return;
+      }
+      this.showResponse(`Microphone error: ${event.error}`, '#FF4444');
+      if (this.state === 'listening') this.sendAction('cancel');
+    };
+
+    this.recognition.onend = () => {
+      this.recognitionActive = false;
+      if (!this.recognitionProducedResult && this.state === 'listening') this.sendAction('cancel');
+    };
+  }
+
+  startRecognition() {
+    if (!this.micEnabled || !this.recognition || this.recognitionActive) return;
+    try {
+      window.speechSynthesis?.cancel?.();
+      this.recognition.start();
+    } catch (error) {
+      if (error?.name !== 'InvalidStateError') {
+        this.showResponse('Microphone could not start.', '#FF4444');
+        this.sendAction('cancel');
+      }
+    }
+  }
+
+  stopRecognition() {
+    if (!this.recognition || !this.recognitionActive) return;
+    try { this.recognition.abort(); } catch {}
+    this.recognitionActive = false;
+  }
+
   unlockVoice() {
     if (!this.voiceEnabled || !('speechSynthesis' in window)) return;
     this.voiceUnlocked = true;
@@ -51,6 +127,7 @@ class FlowLinkStag {
     if (!this.voiceEnabled || !this.voiceUnlocked || !('speechSynthesis' in window)) return;
     const clean = String(text ?? '').trim();
     if (!clean) return;
+    this.stopRecognition();
     if (interrupt) window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(clean);
     if (this.voice) utterance.voice = this.voice;
@@ -80,6 +157,7 @@ class FlowLinkStag {
     this.ws.addEventListener('error', () => this.setLocalStatus('CONNECTION ERROR', '#FF4444'));
     this.ws.addEventListener('close', () => {
       this.ws = null;
+      this.stopRecognition();
       this.applyState('offline');
       this.scheduleReconnect();
     });
@@ -103,6 +181,7 @@ class FlowLinkStag {
     let data;
     try { data = JSON.parse(event.data); } catch { return; }
     if (data.type === 'status') this.applyState(data.state);
+    else if (data.type === 'transcript') this.showResponse(data.text, '#9DEEFF');
     else if (data.type === 'response') {
       this.showResponse(data.text, data.color || '#FFFFFF');
       this.speak(data.text);
@@ -132,10 +211,15 @@ class FlowLinkStag {
       offline: ['OFFLINE', '#FF4444']
     };
     this.setLocalStatus(...map[state]);
+
     if (state === 'listening') {
       this.showResponse('Listening…', '#00E5FF');
-      this.speak('I am listening.');
+      if (this.micEnabled) this.startRecognition();
+      else this.speak('I am listening.');
+    } else {
+      this.stopRecognition();
     }
+
     if (state === 'thinking') this.showResponse('Processing…', '#7B2FFC');
     if (state === 'idle') {
       this.responseTimer = setTimeout(() => this.hideResponse(), 1800);
@@ -174,6 +258,12 @@ class FlowLinkStag {
     return true;
   }
 
+  sendTranscript(text) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+    this.ws.send(JSON.stringify({ action: 'transcript', text }));
+    return true;
+  }
+
   requestListening() {
     if (this.state !== 'idle') return;
     this.sendAction('start_listening');
@@ -187,6 +277,7 @@ class FlowLinkStag {
         this.requestListening();
       } else if (e.key === 'Escape') {
         e.preventDefault();
+        this.stopRecognition();
         window.speechSynthesis?.cancel?.();
         if (this.ws?.readyState === WebSocket.OPEN) this.sendAction('cancel');
         else this.hideResponse();
@@ -209,7 +300,10 @@ class FlowLinkStag {
     });
 
     window.addEventListener('resize', () => this.adjustLayout());
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) this.adjustLayout(); });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) this.adjustLayout();
+      else this.stopRecognition();
+    });
     this.adjustLayout();
     this.startEyeMotion();
   }
