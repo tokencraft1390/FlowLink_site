@@ -8,6 +8,10 @@ class FlowLinkStag {
     this.maxReconnectAttempts = 8;
     this.baseReconnectDelay = 1000;
     this.touchGuardUntil = 0;
+    this.voiceEnabled = new URLSearchParams(location.search).has('voice');
+    this.voiceUnlocked = false;
+    this.voice = null;
+    this.hasAnnouncedReady = false;
     this.stage = document.getElementById('stage');
     this.response = document.getElementById('response');
     this.statusText = document.querySelector('.status-text');
@@ -16,7 +20,49 @@ class FlowLinkStag {
     document.body.classList.toggle('kiosk', new URLSearchParams(location.search).has('kiosk'));
     this.bindEvents();
     this.createAmbientParticles();
+    this.prepareVoice();
     this.connect();
+  }
+
+  prepareVoice() {
+    if (!this.voiceEnabled || !('speechSynthesis' in window)) return;
+    const chooseVoice = () => {
+      const voices = speechSynthesis.getVoices();
+      if (!voices.length) return;
+      this.voice = voices.find(v => /en-US/i.test(v.lang) && /male|daniel|david|alex|aaron|fred/i.test(v.name))
+        || voices.find(v => /en-US/i.test(v.lang))
+        || voices[0];
+    };
+    chooseVoice();
+    speechSynthesis.addEventListener?.('voiceschanged', chooseVoice, { once: true });
+  }
+
+  unlockVoice() {
+    if (!this.voiceEnabled || !('speechSynthesis' in window)) return;
+    this.voiceUnlocked = true;
+    speechSynthesis.resume();
+    if (!this.hasAnnouncedReady && this.state === 'idle') {
+      this.hasAnnouncedReady = true;
+      this.speak('FlowLink online. Ready, friend.');
+    }
+  }
+
+  speak(text, { interrupt = true } = {}) {
+    if (!this.voiceEnabled || !this.voiceUnlocked || !('speechSynthesis' in window)) return;
+    const clean = String(text ?? '').trim();
+    if (!clean) return;
+    if (interrupt) speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    if (this.voice) utterance.voice = this.voice;
+    utterance.rate = 0.92;
+    utterance.pitch = 0.82;
+    utterance.volume = 0.9;
+    utterance.onstart = () => this.stage.classList.add('speaking');
+    utterance.onend = () => {
+      if (this.state !== 'speaking') this.stage.classList.remove('speaking');
+    };
+    utterance.onerror = () => this.stage.classList.remove('speaking');
+    speechSynthesis.speak(utterance);
   }
 
   connect() {
@@ -57,12 +103,16 @@ class FlowLinkStag {
     let data;
     try { data = JSON.parse(event.data); } catch { return; }
     if (data.type === 'status') this.applyState(data.state);
-    else if (data.type === 'response') this.showResponse(data.text, data.color || '#FFFFFF');
-    else if (data.type === 'error') {
+    else if (data.type === 'response') {
+      this.showResponse(data.text, data.color || '#FFFFFF');
+      this.speak(data.text);
+    } else if (data.type === 'error') {
       this.showResponse(data.message || 'System error', '#FF4444');
+      this.speak(data.message || 'System error');
       this.applyState('error');
     } else if (data.type === 'system' && data.action === 'shutdown') {
       this.showResponse('System offline', '#FF4444');
+      this.speak('System offline.');
       this.applyState('offline');
     }
   }
@@ -82,9 +132,18 @@ class FlowLinkStag {
       offline: ['OFFLINE', '#FF4444']
     };
     this.setLocalStatus(...map[state]);
-    if (state === 'listening') this.showResponse('Listening…', '#00E5FF');
+    if (state === 'listening') {
+      this.showResponse('Listening…', '#00E5FF');
+      this.speak('I am listening.');
+    }
     if (state === 'thinking') this.showResponse('Processing…', '#7B2FFC');
-    if (state === 'idle') this.responseTimer = setTimeout(() => this.hideResponse(), 1800);
+    if (state === 'idle') {
+      this.responseTimer = setTimeout(() => this.hideResponse(), 1800);
+      if (this.voiceUnlocked && !this.hasAnnouncedReady) {
+        this.hasAnnouncedReady = true;
+        this.speak('FlowLink online. Ready, friend.');
+      }
+    }
   }
 
   setLocalStatus(text, color) {
@@ -122,11 +181,13 @@ class FlowLinkStag {
 
   bindEvents() {
     document.addEventListener('keydown', e => {
+      this.unlockVoice();
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         this.requestListening();
       } else if (e.key === 'Escape') {
         e.preventDefault();
+        speechSynthesis?.cancel?.();
         if (this.ws?.readyState === WebSocket.OPEN) this.sendAction('cancel');
         else this.hideResponse();
       } else if (e.key.toLowerCase() === 'r' && e.ctrlKey) {
@@ -136,11 +197,13 @@ class FlowLinkStag {
     });
 
     document.addEventListener('touchstart', () => {
+      this.unlockVoice();
       this.touchGuardUntil = performance.now() + 700;
       this.requestListening();
     }, { passive: true });
 
     document.addEventListener('click', () => {
+      this.unlockVoice();
       if (performance.now() < this.touchGuardUntil) return;
       this.requestListening();
     });
