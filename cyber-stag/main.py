@@ -1,3 +1,4 @@
+import asyncio
 import os
 from pathlib import Path
 
@@ -53,15 +54,16 @@ async def answer_transcript(text):
     text = str(text or '').strip()
     if not text:
         await broadcast({'type': 'error', 'message': 'I did not catch that.'})
+        await asyncio.sleep(1)
         await set_state('idle')
         return
 
     client = ai_client()
     if client is None:
-        await broadcast({
-            'type': 'response',
-            'text': f'I heard: {text}. Add OPENAI_API_KEY to enable intelligent replies.'
-        })
+        reply = f'I heard: {text}. Add OPENAI_API_KEY to enable intelligent replies.'
+        await set_state('speaking')
+        await broadcast({'type': 'response', 'text': reply})
+        await asyncio.sleep(min(8, max(2, len(reply.split()) / 2.4)))
         await set_state('idle')
         return
 
@@ -78,9 +80,11 @@ async def answer_transcript(text):
             reply = 'I could not form a response to that.'
         await set_state('speaking')
         await broadcast({'type': 'response', 'text': reply})
+        await asyncio.sleep(min(15, max(2, len(reply.split()) / 2.4)))
     except Exception as exc:
         print(f'Inference error: {type(exc).__name__}: {exc}')
         await broadcast({'type': 'error', 'message': 'The intelligence service is unavailable.'})
+        await asyncio.sleep(2)
     finally:
         await set_state('idle')
 
