@@ -1,6 +1,6 @@
 # FlowLink Cyber Stag
 
-Isolated browser display for the FlowLink cyber-stag interface. The display renders backend-authoritative state over WebSocket; it does not contain microphone, model-inference, signing, payment, or TTS logic.
+Isolated browser display for the FlowLink cyber-stag interface. The display renders backend-authoritative state over WebSocket. Voice capture, model inference, signing, and payment logic remain outside the avatar layer.
 
 ## Run locally
 
@@ -12,7 +12,15 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-Open `http://127.0.0.1:8000`. Add `?kiosk=1` to hide the cursor for kiosk displays.
+Open `http://127.0.0.1:8000`.
+
+Display options:
+
+- `?kiosk=1` hides the cursor for kiosk displays.
+- `?voice=1` enables browser-native spoken output on that display.
+- `?kiosk=1&voice=1` makes one display the speaking kiosk.
+
+Voice intentionally stays opt-in so a multi-monitor setup does not make every screen speak at once. Browsers require a keyboard, touch, or click gesture before speech can begin. After the first gesture, the voice announces `FlowLink online. Ready, friend.`, speaks the listening cue, and reads backend `response` messages aloud. It uses the best available local English voice and requires no API key.
 
 ## State contract
 
@@ -33,4 +41,4 @@ The server owns canonical state and broadcasts changes to every connected displa
 
 ## Architecture boundary
 
-Keep voice capture, inference, routing, and speech synthesis in separate modules or services. Those modules should drive the display by changing backend state; the avatar should never embed provider-specific model logic.
+Browser speech synthesis is presentation only. Keep microphone capture, speech recognition, inference, routing, and any premium/cloud TTS service in separate modules. Those modules should drive the display through backend state and response events; the avatar should never embed provider-specific model logic, credentials, signing, or payment execution.
