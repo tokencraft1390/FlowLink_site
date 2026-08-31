@@ -27,20 +27,20 @@ class FlowLinkStag {
   prepareVoice() {
     if (!this.voiceEnabled || !('speechSynthesis' in window)) return;
     const chooseVoice = () => {
-      const voices = speechSynthesis.getVoices();
+      const voices = window.speechSynthesis.getVoices();
       if (!voices.length) return;
       this.voice = voices.find(v => /en-US/i.test(v.lang) && /male|daniel|david|alex|aaron|fred/i.test(v.name))
         || voices.find(v => /en-US/i.test(v.lang))
         || voices[0];
     };
     chooseVoice();
-    speechSynthesis.addEventListener?.('voiceschanged', chooseVoice, { once: true });
+    window.speechSynthesis.addEventListener?.('voiceschanged', chooseVoice, { once: true });
   }
 
   unlockVoice() {
     if (!this.voiceEnabled || !('speechSynthesis' in window)) return;
     this.voiceUnlocked = true;
-    speechSynthesis.resume();
+    window.speechSynthesis.resume();
     if (!this.hasAnnouncedReady && this.state === 'idle') {
       this.hasAnnouncedReady = true;
       this.speak('FlowLink online. Ready, friend.');
@@ -51,7 +51,7 @@ class FlowLinkStag {
     if (!this.voiceEnabled || !this.voiceUnlocked || !('speechSynthesis' in window)) return;
     const clean = String(text ?? '').trim();
     if (!clean) return;
-    if (interrupt) speechSynthesis.cancel();
+    if (interrupt) window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(clean);
     if (this.voice) utterance.voice = this.voice;
     utterance.rate = 0.92;
@@ -62,7 +62,7 @@ class FlowLinkStag {
       if (this.state !== 'speaking') this.stage.classList.remove('speaking');
     };
     utterance.onerror = () => this.stage.classList.remove('speaking');
-    speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utterance);
   }
 
   connect() {
@@ -187,7 +187,7 @@ class FlowLinkStag {
         this.requestListening();
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        speechSynthesis?.cancel?.();
+        window.speechSynthesis?.cancel?.();
         if (this.ws?.readyState === WebSocket.OPEN) this.sendAction('cancel');
         else this.hideResponse();
       } else if (e.key.toLowerCase() === 'r' && e.ctrlKey) {
