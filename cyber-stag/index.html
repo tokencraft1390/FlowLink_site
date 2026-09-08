@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>FlowLink Cyber Stag</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="stage" id="stage" aria-label="FlowLink cyber stag interface">
+    <div class="status-overlay" role="status" aria-live="polite">
+      <span class="status-indicator" aria-hidden="true"></span>
+      <span class="status-text">CONNECTING</span>
+    </div>
+
+    <div class="stag-container" aria-hidden="true">
+      <svg class="stag" viewBox="0 0 600 650" xmlns="http://www.w3.org/2000/svg" role="img">
+        <defs>
+          <radialGradient id="purpleGlow" cx="50%" cy="42%" r="45%">
+            <stop offset="0%" stop-color="#7B2FFC" stop-opacity=".32"/>
+            <stop offset="100%" stop-color="#7B2FFC" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="traceGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#00E5FF"/>
+            <stop offset="1" stop-color="#0099CC"/>
+          </linearGradient>
+        </defs>
+        <rect width="600" height="650" rx="24" fill="#0A0A0F"/>
+        <ellipse cx="300" cy="300" rx="220" ry="250" fill="url(#purpleGlow)"/>
+        <g fill="none" stroke="url(#traceGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M260 250 210 190 165 120 135 65M230 215 165 205 105 170M340 250 390 190 435 120 465 65M370 215 435 205 495 170"/>
+          <path d="M220 275 Q300 230 380 275 L355 445 Q300 505 245 445 Z"/>
+          <path d="M245 445 300 520 355 445M270 330 300 365 330 330"/>
+        </g>
+        <circle class="eye eye-glow" data-base-cy="335" cx="265" cy="335" r="22" fill="#00E5FF" opacity=".18"/>
+        <circle class="eye" data-base-cy="335" cx="265" cy="335" r="8" fill="#00E5FF"/>
+        <circle class="eye eye-glow" data-base-cy="335" cx="335" cy="335" r="22" fill="#7B2FFC" opacity=".18"/>
+        <circle class="eye" data-base-cy="335" cx="335" cy="335" r="8" fill="#7B2FFC"/>
+      </svg>
+    </div>
+
+    <div id="response" class="response-display" aria-live="polite" aria-atomic="true" hidden></div>
+  </main>
+  <script src="/static/avatar.js" defer></script>
+</body>
+</html>
