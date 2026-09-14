@@ -1,5 +1,11 @@
 # FlowLink_site
 
+## LoopVault paid pilot
+
+The public LoopVault evidence dashboard now offers a $750 fixed-fee, 14-day, monitoring-only Base/Aave risk pilot for up to 10 public borrower addresses, plus a separate partnership inquiry path.
+
+Public dashboard: ./loopvault-proof.html
+
 Responsive public site for FlowLink Revenue AI LLC.
 
 ## CreatorFlow — direct sales
